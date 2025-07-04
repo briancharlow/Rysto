@@ -1,0 +1,84 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Output of the go coverage tool
+*.out
+
+# Go build cache
+bin/
+build/
+_build/
+vendor/
+
+# Go modules
+/go.sum
+/go.mod
+
+
+# IDE/editor files
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Environment variables files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Test binary
+*.test
+
+# Coverage reports
+coverage.out
+coverage.html
+
+# Node modules (if you have any frontend or UI code in the repo)
+node_modules/
+
+# Misc
+*.bak
+*.orig
+*.rej
+
+# Docker files (if you generate any build artifacts)
+docker-compose.override.yml
+docker-compose.override.yaml
+
+# Editorconfig files
+.editorconfig
+
+# JetBrains IDEs
+.idea/
+
+# MacOS
+.DS_Store
+
+# Linux
+*~
+
+# Vim swap files
+*.swp
+*.swo
+
+# GoLand
+*.iml
+
+# Generated files
+*.gen.go
