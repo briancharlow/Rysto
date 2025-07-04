@@ -12,9 +12,9 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"authService.com/auth/controllers" // Updated import
-	"authService.com/auth/middleware"  // Updated import
-	"authService.com/auth/utils"       // Updated import
+	"authService.com/auth/controllers" 
+	"authService.com/auth/middleware"  
+	"authService.com/auth/utils"       
 )
 
 func main() {

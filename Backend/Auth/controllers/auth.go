@@ -10,11 +10,11 @@ import (
     "go.mongodb.org/mongo-driver/mongo"
     "golang.org/x/crypto/bcrypt"
 
-    "authService.com/auth/models" // Updated import
-    "authService.com/auth/utils" // Updated import
+    "authService.com/auth/models" 
+    "authService.com/auth/utils" 
 )
 
-// userCollection is a package-level variable to hold the MongoDB collection.
+
 var userCollection *mongo.Collection
 
 // SetUserCollection injects the MongoDB collection for user operations.
@@ -22,19 +22,19 @@ func SetUserCollection(collection *mongo.Collection) {
     userCollection = collection
 }
 
-// RegisterInput defines the expected input for user registration.
+
 type RegisterInput struct {
     Email    string `json:"email" binding:"required,email"`
     Password string `json:"password" binding:"required,min=6"`
 }
 
-// LoginInput defines the expected input for user login.
+
 type LoginInput struct {
     Email    string `json:"email" binding:"required,email"`
     Password string `json:"password" binding:"required"`
 }
 
-// Register handles new user registration.
+
 func Register(c *gin.Context) {
     var input RegisterInput
     if err := c.ShouldBindJSON(&input); err != nil {
@@ -45,7 +45,7 @@ func Register(c *gin.Context) {
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
 
-    // Check if user with this email already exists
+    
     count, err := userCollection.CountDocuments(ctx, bson.M{"email": input.Email})
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error checking email availability"})
@@ -56,7 +56,7 @@ func Register(c *gin.Context) {
         return
     }
 
-    // Hash the password before storing
+   
     hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
@@ -77,7 +77,7 @@ func Register(c *gin.Context) {
     c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
 }
 
-// Login handles user authentication and JWT token generation.
+
 func Login(c *gin.Context) {
     var input LoginInput
     if err := c.ShouldBindJSON(&input); err != nil {
@@ -100,14 +100,14 @@ func Login(c *gin.Context) {
         return
     }
 
-    // Compare provided password with hashed password
+    
     err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
     if err != nil {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
         return
     }
-
-    // Generate JWT token
+ 
+    
     token, err := utils.GenerateToken(user.Email)
     if err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
