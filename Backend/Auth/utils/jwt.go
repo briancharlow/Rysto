@@ -13,22 +13,22 @@ func SetJWTSecret(secret []byte) {
     jwtKey = secret
 }
 
-// Claims defines the JWT claims structure.
+
 type Claims struct {
     Email string `json:"email"`
     jwt.RegisteredClaims
 }
 
-// GenerateToken creates a new JWT for the given email.
+
 func GenerateToken(email string) (string, error) {
-    // Set token expiration to 72 hours from now
+ 
     expirationTime := time.Now().Add(72 * time.Hour)
     claims := &Claims{
         Email: email,
         RegisteredClaims: jwt.RegisteredClaims{
             ExpiresAt: jwt.NewNumericDate(expirationTime),
             IssuedAt:  jwt.NewNumericDate(time.Now()),
-            Issuer:    "rysto-auth-service", // Can also be an env var
+            Issuer:    "rysto-auth-service", 
         },
     }
 
@@ -36,12 +36,12 @@ func GenerateToken(email string) (string, error) {
     return token.SignedString(jwtKey)
 }
 
-// ValidateToken parses and validates a JWT string.
+
 func ValidateToken(tokenStr string) (*Claims, error) {
     claims := &Claims{}
 
     token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-        // Ensure the token's signing method is HMAC.
+
         if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
             return nil, jwt.ErrSignatureInvalid
         }

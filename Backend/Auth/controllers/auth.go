@@ -91,7 +91,7 @@ func Login(c *gin.Context) {
     var user models.User
     err := userCollection.FindOne(ctx, bson.M{"email": input.Email}).Decode(&user)
     if err != nil {
-        // User not found or other database error
+        
         if err == mongo.ErrNoDocuments {
             c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
         } else {

@@ -57,7 +57,7 @@ func main() {
         projectURL = "authService.com/auth" // Default if not set
     }
 
-    // --- Connect to MongoDB ---
+  
     log.Println("Attempting to connect to MongoDB...")
     client, err := mongo.NewClient(options.Client().ApplyURI(mongoURI))
     if err != nil {
