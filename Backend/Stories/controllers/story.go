@@ -12,13 +12,13 @@ import (
 	"storyService.com/story/models"
 )
 
-// getUserEmail extracts the email from context
+
 func getUserEmail(c *gin.Context) string {
 	email, _ := c.Get("email")
 	return email.(string)
 }
 
-// CreateStory handles the initial story creation
+// create story
 func CreateStory(c *gin.Context) {
 	var req struct {
 		Content string `json:"content" binding:"required"`
@@ -47,7 +47,7 @@ func CreateStory(c *gin.Context) {
 	c.JSON(http.StatusCreated, story)
 }
 
-// AddContinuation submits a continuation to a story
+// AddContinuation 
 func AddContinuation(c *gin.Context) {
 	var req struct {
 		Content string `json:"content" binding:"required"`
@@ -185,7 +185,7 @@ func AcceptContinuation(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Ensure story belongs to author
+	
 	var story models.Story
 	err := models.StoryCollection.FindOne(ctx, bson.M{"_id": storyID, "authorId": authorID}).Decode(&story)
 	if err != nil {
@@ -193,7 +193,7 @@ func AcceptContinuation(c *gin.Context) {
 		return
 	}
 
-	// Update story with accepted continuation
+	
 	_, err = models.StoryCollection.UpdateOne(ctx, bson.M{"_id": storyID}, bson.M{"$set": bson.M{"accepted": cid}})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to accept continuation"})
