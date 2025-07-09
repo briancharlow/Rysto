@@ -1,15 +1,25 @@
-version: '3.8'
 
 services:
   story-service:
-    image: story-service:latest
     build:
-      context: ./story-service
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "8081:8081"
+      - "${PORT}:8081"
     env_file:
       - .env
     environment:
       - MONGODB_URI=${MONGODB_URI}
       - JWT_SECRET=${JWT_SECRET}
+      - PORT=${PORT}
+      - GIN_MODE=${GIN_MODE}
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
     restart: unless-stopped

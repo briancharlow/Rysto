@@ -124,21 +124,14 @@ func Login(c *gin.Context) {
 	
 }
 
-// Logout removes the token from Redis
 func Logout(c *gin.Context) {
-	authHeader := c.GetHeader("Authorization")
-	if authHeader == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Authorization header missing"})
+	token, exists := c.Get("token")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token not found in context"})
 		return
 	}
 
-	token := utils.ExtractToken(authHeader)
-	if token == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid token format"})
-		return
-	}
-
-	err := redis.Client.Del(redis.Ctx, token).Err()
+	err := redis.Client.Del(redis.Ctx, token.(string)).Err()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to invalidate token"})
 		return

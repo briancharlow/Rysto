@@ -43,6 +43,7 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		// Token is valid and present in Redis
 		c.Set("email", claims.Email)
+		c.Set("token", token)
 		c.Next()
 	}
 }
