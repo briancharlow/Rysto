@@ -30,6 +30,10 @@ type LoginInput struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
 }
+type LoginResponse struct {
+	Token string `json:"token"`
+	Message string `json:"message"`
+}
 
 // Register handles user registration
 func Register(c *gin.Context) {
@@ -113,11 +117,11 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store token"})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Login successful",
-		"token":   token,
+	c.JSON(http.StatusOK, LoginResponse{
+		Token:   token,
+		Message: "Login successful",
 	})
+	
 }
 
 // Logout removes the token from Redis
