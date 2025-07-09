@@ -14,8 +14,8 @@ import (
 
 	"authService.com/auth/controllers"
 	"authService.com/auth/middleware"
+	"authService.com/auth/redis"
 	"authService.com/auth/utils"
-	redisdb "authService.com/auth/redisDb"
 )
 
 func main() {
@@ -44,9 +44,9 @@ func main() {
 	if redisAddr == "" {
 		log.Fatal("Error: REDIS_ADDR not set")
 	}
-	os.Setenv("REDIS_ADDR", redisAddr) // ensure redisdb sees it
+	os.Setenv("REDIS_ADDR", redisAddr) // ensure redis sees it
 	log.Println("Connecting to Redis...")
-	redisdb.InitRedis()
+	redis.InitRedis()
 	log.Println("Redis connected successfully!")
 
 	// --- MongoDB ---

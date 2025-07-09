@@ -12,7 +12,7 @@ import (
 
 	"authService.com/auth/models"
 	"authService.com/auth/utils"
-	"authService.com/auth/redisdb"
+	"authService.com/auth/redis"
 )
 
 var userCollection *mongo.Collection
@@ -108,7 +108,7 @@ func Login(c *gin.Context) {
 
 	// Store token in Redis with expiration
 	tokenTTL := 24 * time.Hour
-	err = redisdb.Client.Set(redisdb.Ctx, token, user.Email, tokenTTL).Err()
+	err = redis.Client.Set(redis.Ctx, token, user.Email, tokenTTL).Err()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store token"})
 		return
@@ -134,7 +134,7 @@ func Logout(c *gin.Context) {
 		return
 	}
 
-	err := redisdb.Client.Del(redisdb.Ctx, token).Err()
+	err := redis.Client.Del(redis.Ctx, token).Err()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to invalidate token"})
 		return

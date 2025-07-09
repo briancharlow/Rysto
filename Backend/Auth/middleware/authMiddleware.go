@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"authService.com/auth/redisdb"
+	"authService.com/auth/redis"
 	"authService.com/auth/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -34,7 +34,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		// Check Redis to ensure token is active
-		exists, err := redisdb.Client.Exists(redisdb.Ctx, token).Result()
+		exists, err := redis.Client.Exists(redis.Ctx, token).Result()
 		if err != nil || exists == 0 {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token is no longer valid"})
 			c.Abort()
