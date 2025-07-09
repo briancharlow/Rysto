@@ -1,41 +1,48 @@
 package middleware
 
 import (
-    "net/http"
-    "strings"
+	"net/http"
 
-    "github.com/gin-gonic/gin"
-
-    "authService.com/auth/utils" // Updated import
+	"authService.com/auth/redisdb"
+	"authService.com/auth/utils"
+	"github.com/gin-gonic/gin"
 )
 
-// AuthMiddleware validates the JWT token from the Authorization header.
+// AuthMiddleware validates the JWT and checks Redis for token validity
 func AuthMiddleware() gin.HandlerFunc {
-    return func(c *gin.Context) {
-        authHeader := c.GetHeader("Authorization")
-        if authHeader == "" {
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
-            c.Abort() // Stop processing the request
-            return
-        }
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+			c.Abort()
+			return
+		}
 
-        parts := strings.Split(authHeader, " ")
-        if len(parts) != 2 || parts[0] != "Bearer" {
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header format must be Bearer {token}"})
-            c.Abort()
-            return
-        }
+		token := utils.ExtractToken(authHeader)
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization format must be Bearer {token}"})
+			c.Abort()
+			return
+		}
 
-        token := parts[1]
-        claims, err := utils.ValidateToken(token)
-        if err != nil {
-            c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
-            c.Abort()
-            return
-        }
+		// Validate JWT token
+		claims, err := utils.ValidateToken(token)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.Abort()
+			return
+		}
 
-        // Store user email in context for subsequent handlers to access
-        c.Set("email", claims.Email)
-        c.Next() // Continue to the next handler
-    }
+		// Check Redis to ensure token is active
+		exists, err := redisdb.Client.Exists(redisdb.Ctx, token).Result()
+		if err != nil || exists == 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token is no longer valid"})
+			c.Abort()
+			return
+		}
+
+		// Token is valid and present in Redis
+		c.Set("email", claims.Email)
+		c.Next()
+	}
 }

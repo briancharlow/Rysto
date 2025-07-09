@@ -1,17 +1,25 @@
 services:
   auth-service:
-    image: auth-service:latest
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "${PORT}:8080"
     env_file:
-      - .env         
+      - .env
     environment:
       - MONGODB_URI=${MONGODB_URI}
       - JWT_SECRET=${JWT_SECRET}
       - PORT=${PORT}
       - GIN_MODE=${GIN_MODE}
       - PROJECT_URL=${PROJECT_URL}
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
     restart: unless-stopped
