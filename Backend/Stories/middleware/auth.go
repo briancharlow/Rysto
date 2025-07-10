@@ -1,11 +1,11 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
-	"strings"
+	
 
 	"github.com/gin-gonic/gin"
-
 	"storyService.com/story/utils"
 	"storyService.com/story/redis"
 )
@@ -19,27 +19,25 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
+		token := utils.ExtractToken(authHeader)
+		if token == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header must be Bearer <token>"})
 			c.Abort()
 			return
 		}
 
-		token := parts[1]
+		log.Printf("AuthMiddleware: token extracted: %s", token)
 
-		// Check if token exists in Redis
-		email, err := redis.Client.Get(redis.Ctx, token).Result()
+		claims, err := utils.ValidateToken(token)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token verification failed"})
 			c.Abort()
 			return
 		}
 
-		// Validate token signature & expiry
-		claims, err := utils.ValidateToken(token)
+		email, err := redis.Client.Get(redis.Ctx, token).Result()
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token verification failed"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired token"})
 			c.Abort()
 			return
 		}
@@ -50,7 +48,6 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Save data for later use
 		c.Set("email", email)
 		c.Set("token", token)
 

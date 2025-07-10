@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -11,8 +12,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"authService.com/auth/models"
-	"authService.com/auth/utils"
 	"authService.com/auth/redis"
+	"authService.com/auth/utils"
 )
 
 var userCollection *mongo.Collection
@@ -121,15 +122,17 @@ func Login(c *gin.Context) {
 		Token:   token,
 		Message: "Login successful",
 	})
-	
 }
 
 func Logout(c *gin.Context) {
 	token, exists := c.Get("token")
 	if !exists {
+		log.Println("Logout: token not found in context")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token not found in context"})
 		return
 	}
+
+	log.Printf("Logout: token to delete: %s", token.(string))
 
 	err := redis.Client.Del(redis.Ctx, token.(string)).Err()
 	if err != nil {

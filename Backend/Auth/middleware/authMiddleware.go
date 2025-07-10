@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
+	
 
 	"authService.com/auth/redis"
 	"authService.com/auth/utils"
@@ -24,6 +26,8 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
+		log.Printf("AuthMiddleware: token extracted: %s", token)
 
 		// Validate JWT token
 		claims, err := utils.ValidateToken(token)

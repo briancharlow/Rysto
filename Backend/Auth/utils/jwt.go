@@ -58,8 +58,8 @@ func ValidateToken(tokenStr string) (*Claims, error) {
 // ExtractToken safely parses the token from the Authorization header.
 func ExtractToken(authHeader string) string {
 	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || parts[0] != "Bearer" {
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
 		return ""
 	}
-	return parts[1]
+	return strings.TrimSpace(parts[1])
 }
