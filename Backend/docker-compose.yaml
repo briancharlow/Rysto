@@ -1,0 +1,44 @@
+
+services:
+  auth-service:
+    build:
+      context: ./Auth
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT_AUTH:-8080}:8080"
+    env_file:
+      - ./Auth/.env
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - PORT=${PORT_AUTH:-8080}
+      - GIN_MODE=${GIN_MODE}
+      - PROJECT_URL=${PROJECT_URL}
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  story-service:
+    build:
+      context: ./Stories
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT_STORY:-8081}:8081"
+    env_file:
+      - ./Stories/.env
+    environment:
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - PORT=${PORT_STORY:-8081}
+      - GIN_MODE=${GIN_MODE}
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
