@@ -21,6 +21,8 @@ func getUserEmail(c *gin.Context) string {
 func CreateStory(c *gin.Context) {
 	var req struct {
 		Content string `json:"content" binding:"required"`
+		Title   string `json:"title" binding:"required"`
+		Tags    []string `json:"tags,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -30,6 +32,8 @@ func CreateStory(c *gin.Context) {
 	story := models.Story{
 		AuthorID:  getUserEmail(c),
 		Content:   req.Content,
+		Title:     req.Title,
+		Tags:      req.Tags,
 		CreatedAt: time.Now(),
 	}
 

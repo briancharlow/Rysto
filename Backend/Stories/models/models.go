@@ -13,8 +13,9 @@ type Story struct {
 	ID        primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
 	AuthorID  string              `bson:"authorId" json:"authorId"`
 	Content   string              `bson:"content" json:"content"`
+	Title     string              `bson:"title" json:"title"`
 	CreatedAt time.Time           `bson:"createdAt" json:"createdAt"`
-	Accepted  *primitive.ObjectID `bson:"accepted,omitempty" json:"accepted,omitempty"`
+	Tags	  []string            `bson:"tags,omitempty" json:"tags,omitempty"`
 }
 
 type Continuation struct {
