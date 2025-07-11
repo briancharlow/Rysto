@@ -14,8 +14,8 @@ import (
 	"storyService.com/story/controllers"
 	"storyService.com/story/middleware"
 	"storyService.com/story/models"
-	"storyService.com/story/utils"
 	"storyService.com/story/redis"
+	"storyService.com/story/utils"
 )
 
 func main() {
@@ -97,6 +97,10 @@ func main() {
 		auth.DELETE("/stories/:id", controllers.DeleteStory)
 		auth.DELETE("/stories/:id/continuations/:cid", controllers.DeleteContinuation)
 		auth.POST("/stories/:id/accept/:cid", controllers.AcceptContinuation)
+		auth.GET("/stories/all", controllers.GetAllStoriesWithContinuations)
+		auth.GET("/stories/:id", controllers.GetStoryByID)
+		auth.GET("/stories/by-title", controllers.GetStoriesByTitle)
+		auth.GET("/stories/by-author", controllers.GetStoriesByAuthor)
 	}
 
 	// --- Run server ---

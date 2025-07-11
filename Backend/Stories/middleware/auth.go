@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"log"
 	"net/http"
 	
 
@@ -26,7 +25,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		log.Printf("AuthMiddleware: token extracted: %s", token)
+		// log.Printf("AuthMiddleware: token extracted: %s", token)
 
 		claims, err := utils.ValidateToken(token)
 		if err != nil {

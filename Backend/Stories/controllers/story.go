@@ -12,7 +12,6 @@ import (
 	"storyService.com/story/models"
 )
 
-
 func getUserEmail(c *gin.Context) string {
 	email, _ := c.Get("email")
 	return email.(string)
@@ -47,7 +46,7 @@ func CreateStory(c *gin.Context) {
 	c.JSON(http.StatusCreated, story)
 }
 
-// AddContinuation 
+// AddContinuation
 func AddContinuation(c *gin.Context) {
 	var req struct {
 		Content string `json:"content" binding:"required"`
@@ -185,7 +184,6 @@ func AcceptContinuation(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	
 	var story models.Story
 	err := models.StoryCollection.FindOne(ctx, bson.M{"_id": storyID, "authorId": authorID}).Decode(&story)
 	if err != nil {
@@ -193,7 +191,6 @@ func AcceptContinuation(c *gin.Context) {
 		return
 	}
 
-	
 	_, err = models.StoryCollection.UpdateOne(ctx, bson.M{"_id": storyID}, bson.M{"$set": bson.M{"accepted": cid}})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to accept continuation"})
@@ -202,4 +199,168 @@ func AcceptContinuation(c *gin.Context) {
 
 	_, _ = models.ContinuationCollection.UpdateOne(ctx, bson.M{"_id": cid}, bson.M{"$set": bson.M{"accepted": true}})
 	c.JSON(http.StatusOK, gin.H{"message": "Continuation accepted"})
+}
+
+// GetAllStoriesWithContinuations returns all stories and their associated continuations
+func GetAllStoriesWithContinuations(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var stories []models.Story
+	storiesCollections, err := models.StoryCollection.Find(ctx, bson.M{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stories"})
+		return
+	}
+	defer storiesCollections.Close(ctx)
+	if err := storiesCollections.All(ctx, &stories); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode stories"})
+		return
+	}
+
+	var storiesWithContinuations []gin.H
+	for _, story := range stories {
+		var continuations []models.Continuation
+		continuationsCollections, err := models.ContinuationCollection.Find(ctx, bson.M{"storyId": story.ID})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch continuations"})
+			return
+		}
+		if err := continuationsCollections.All(ctx, &continuations); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
+			continuationsCollections.Close(ctx)
+			return
+		}
+		continuationsCollections.Close(ctx)
+		storiesWithContinuations = append(storiesWithContinuations, gin.H{
+			"story":         story,
+			"continuations": continuations,
+		})
+	}
+	c.JSON(http.StatusOK, storiesWithContinuations)
+}
+
+// GetStoryByID returns a story and its continuations by story ID
+func GetStoryByID(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	storyIDHex := c.Param("id")
+	storyID, err := primitive.ObjectIDFromHex(storyIDHex)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid story ID"})
+		return
+	}
+
+	var story models.Story
+	if err := models.StoryCollection.FindOne(ctx, bson.M{"_id": storyID}).Decode(&story); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Story not found"})
+		return
+	}
+
+	var continuations []models.Continuation
+	continuationsCollections, err := models.ContinuationCollection.Find(ctx, bson.M{"storyId": story.ID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch continuations"})
+		return
+	}
+	if err := continuationsCollections.All(ctx, &continuations); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
+		continuationsCollections.Close(ctx)
+		return
+	}
+	continuationsCollections.Close(ctx)
+
+	c.JSON(http.StatusOK, gin.H{
+		"story":         story,
+		"continuations": continuations,
+	})
+}
+
+// GetStoriesByTitle returns stories and their continuations by title
+func GetStoriesByTitle(c *gin.Context) {
+	title := c.Query("title")
+	if title == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Title query parameter is required"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var stories []models.Story
+	storiesCollections, err := models.StoryCollection.Find(ctx, bson.M{"title": title})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stories"})
+		return
+	}
+	defer storiesCollections.Close(ctx)
+	if err := storiesCollections.All(ctx, &stories); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode stories"})
+		return
+	}
+
+	var storiesWithContinuations []gin.H
+	for _, story := range stories {
+		var continuations []models.Continuation
+		continuationsCollections, err := models.ContinuationCollection.Find(ctx, bson.M{"storyId": story.ID})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch continuations"})
+			return
+		}
+		if err := continuationsCollections.All(ctx, &continuations); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
+			continuationsCollections.Close(ctx)
+			return
+		}
+		continuationsCollections.Close(ctx)
+		storiesWithContinuations = append(storiesWithContinuations, gin.H{
+			"story":         story,
+			"continuations": continuations,
+		})
+	}
+	c.JSON(http.StatusOK, storiesWithContinuations)
+}
+
+// GetStoriesByAuthor returns stories and their continuations by authorId
+func GetStoriesByAuthor(c *gin.Context) {
+	authorID := c.Query("authorId")
+	if authorID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "authorId query parameter is required"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var stories []models.Story
+	storiesCollections, err := models.StoryCollection.Find(ctx, bson.M{"authorId": authorID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stories"})
+		return
+	}
+	defer storiesCollections.Close(ctx)
+	if err := storiesCollections.All(ctx, &stories); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode stories"})
+		return
+	}
+
+	var storiesWithContinuations []gin.H
+	for _, story := range stories {
+		var continuations []models.Continuation
+		continuationsCollections, err := models.ContinuationCollection.Find(ctx, bson.M{"storyId": story.ID})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch continuations"})
+			return
+		}
+		if err := continuationsCollections.All(ctx, &continuations); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
+			continuationsCollections.Close(ctx)
+			return
+		}
+		continuationsCollections.Close(ctx)
+		storiesWithContinuations = append(storiesWithContinuations, gin.H{
+			"story":         story,
+			"continuations": continuations,
+		})
+	}
+	c.JSON(http.StatusOK, storiesWithContinuations)
 }
