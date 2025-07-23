@@ -10,7 +10,6 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - PORT=${PORT_AUTH:-8080}
       - GIN_MODE=${GIN_MODE}
-      - PROJECT_URL=${PROJECT_URL}
       - REDIS_ADDR=redis:6379
     depends_on:
       - redis
