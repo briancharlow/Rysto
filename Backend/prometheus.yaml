@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  - job_name: "auth-service"
+    static_configs:
+      - targets: ["auth-service:8080"]
+
+  - job_name: "story-service"
+    static_configs:
+      - targets: ["story-service:8081"]
+
+  - job_name: "voting-service"
+    static_configs:
+      - targets: ["voting-service:8082"]

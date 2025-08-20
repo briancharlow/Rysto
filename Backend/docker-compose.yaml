@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   auth-service:
     build:
@@ -10,6 +12,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - PORT=${PORT_AUTH:-8080}
       - GIN_MODE=${GIN_MODE}
+      - PROJECT_URL=${PROJECT_URL}
       - REDIS_ADDR=redis:6379
     depends_on:
       - redis
@@ -51,4 +54,29 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - auth-service
+      - story-service
+      - voting-service
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
     restart: unless-stopped

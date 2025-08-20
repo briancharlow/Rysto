@@ -73,3 +73,8 @@ func DeleteVote(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Vote deleted"})
 }
+
+
+func RemoveVote(c *gin.Context){
+	
+}

@@ -9,6 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -17,6 +19,42 @@ import (
 	"authService.com/auth/redis"
 	"authService.com/auth/utils"
 )
+
+// --- Business Metrics ---
+var (
+	registrationCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "auth_registrations_total",
+			Help: "Total number of user registrations",
+		},
+	)
+
+	loginCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "auth_logins_total",
+			Help: "Total number of successful logins",
+		},
+	)
+
+	failedLoginCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "auth_failed_logins_total",
+			Help: "Total number of failed login attempts",
+		},
+	)
+
+	activeSessionsGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "auth_active_sessions",
+			Help: "Current number of active sessions (tokens in Redis)",
+		},
+	)
+)
+
+func init() {
+	// Register metrics with Prometheus
+	prometheus.MustRegister(registrationCounter, loginCounter, failedLoginCounter, activeSessionsGauge)
+}
 
 func main() {
 	// --- Load environment variables ---
@@ -44,7 +82,7 @@ func main() {
 	if redisAddr == "" {
 		log.Fatal("Error: REDIS_ADDR not set")
 	}
-	os.Setenv("REDIS_ADDR", redisAddr) // ensure redis sees it
+	os.Setenv("REDIS_ADDR", redisAddr)
 	log.Println("Connecting to Redis...")
 	redis.InitRedis()
 	log.Println("Redis connected successfully!")
@@ -87,10 +125,26 @@ func main() {
 	// --- Setup Gin routes ---
 	r := gin.Default()
 
+	// Prometheus metrics endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+
 	// Public
-	r.POST("/register", controllers.Register)
-	r.POST("/login", controllers.Login)
-	
+	r.POST("/register", func(c *gin.Context) {
+		controllers.Register(c)
+		if c.Writer.Status() == http.StatusCreated {
+			registrationCounter.Inc()
+		}
+	})
+
+	r.POST("/login", func(c *gin.Context) {
+		controllers.Login(c)
+		if c.Writer.Status() == http.StatusOK {
+			loginCounter.Inc()
+			activeSessionsGauge.Inc()
+		} else if c.Writer.Status() == http.StatusUnauthorized {
+			failedLoginCounter.Inc()
+		}
+	})
 
 	// Protected
 	projectURL := os.Getenv("PROJECT_URL")
@@ -115,7 +169,12 @@ func main() {
 			})
 		})
 
-		protected.POST("/logout", controllers.Logout)
+		protected.POST("/logout", func(c *gin.Context) {
+			controllers.Logout(c)
+			if c.Writer.Status() == http.StatusOK {
+				activeSessionsGauge.Dec()
+			}
+		})
 	}
 
 	// --- Run server ---
