@@ -15,6 +15,7 @@ import (
 	"votingService.com/voting/middleware"
 	"votingService.com/voting/models"
 	"votingService.com/voting/utils"
+	"votingService.com/voting/metrics"
 )
 
 func main() {
@@ -46,6 +47,9 @@ func main() {
 	models.InitCollection(db)
 
 	r := gin.Default()
+	r.Use(metrics.PrometheusMiddleware())   // ✅ add middleware
+	metrics.RegisterMetricsEndpoint(r)      // ✅ expose /metrics
+
 	api := r.Group("/api/votes")
 	api.Use(middleware.AuthMiddleware())
 	{
