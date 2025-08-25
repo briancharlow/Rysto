@@ -1,6 +1,10 @@
 package metrics
 
 import (
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -49,3 +53,29 @@ var (
 		},
 	)
 )
+
+// 🔹 Prometheus Middleware for Gin
+func PrometheusMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+
+		// Process request
+		c.Next()
+
+		// Endpoint path (route)
+		endpoint := c.FullPath()
+		if endpoint == "" {
+			endpoint = "unknown"
+		}
+
+		// Status code
+		status := strconv.Itoa(c.Writer.Status())
+
+		// Record request count
+		HttpRequests.WithLabelValues(endpoint, status).Inc()
+
+		// Record request duration
+		duration := time.Since(start).Seconds()
+		HttpRequestDuration.WithLabelValues(endpoint).Observe(duration)
+	}
+}

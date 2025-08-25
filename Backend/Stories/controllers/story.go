@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"storyService.com/story/models"
+	"storyService.com/story/metrics"
 )
 
 func getUserEmail(c *gin.Context) string {
@@ -17,14 +18,16 @@ func getUserEmail(c *gin.Context) string {
 	return email.(string)
 }
 
-// create story
+// CreateStory
 func CreateStory(c *gin.Context) {
+	start := time.Now()
 	var req struct {
-		Content string `json:"content" binding:"required"`
-		Title   string `json:"title" binding:"required"`
+		Content string   `json:"content" binding:"required"`
+		Title   string   `json:"title" binding:"required"`
 		Tags    []string `json:"tags,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories", "400").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -42,26 +45,35 @@ func CreateStory(c *gin.Context) {
 
 	res, err := models.StoryCollection.InsertOne(ctx, story)
 	if err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories", "500").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create story"})
 		return
 	}
 
 	story.ID = res.InsertedID.(primitive.ObjectID)
+
+	metrics.HttpRequests.WithLabelValues("/stories", "201").Inc()
+	metrics.StoriesCreated.Inc()
+	metrics.HttpRequestDuration.WithLabelValues("/stories").Observe(time.Since(start).Seconds())
+
 	c.JSON(http.StatusCreated, story)
 }
 
 // AddContinuation
 func AddContinuation(c *gin.Context) {
+	start := time.Now()
 	var req struct {
 		Content string `json:"content" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		metrics.HttpRequests.WithLabelValues("/continuations", "400").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	storyID, err := primitive.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
+		metrics.HttpRequests.WithLabelValues("/continuations", "400").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid story ID"})
 		return
 	}
@@ -79,20 +91,28 @@ func AddContinuation(c *gin.Context) {
 
 	res, err := models.ContinuationCollection.InsertOne(ctx, cont)
 	if err != nil {
+		metrics.HttpRequests.WithLabelValues("/continuations", "500").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to submit continuation"})
 		return
 	}
 
 	cont.ID = res.InsertedID.(primitive.ObjectID)
+
+	metrics.HttpRequests.WithLabelValues("/continuations", "201").Inc()
+	metrics.ContinuationsAdded.Inc()
+	metrics.HttpRequestDuration.WithLabelValues("/continuations").Observe(time.Since(start).Seconds())
+
 	c.JSON(http.StatusCreated, cont)
 }
 
-// EditStory allows the author to edit their story
+// EditStory
 func EditStory(c *gin.Context) {
+	start := time.Now()
 	var req struct {
 		Content string `json:"content" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories/edit", "400").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -108,19 +128,24 @@ func EditStory(c *gin.Context) {
 
 	res := models.StoryCollection.FindOneAndUpdate(ctx, filter, update)
 	if res.Err() != nil {
+		metrics.HttpRequests.WithLabelValues("/stories/edit", "403").Inc()
 		c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized or story not found"})
 		return
 	}
 
+	metrics.HttpRequests.WithLabelValues("/stories/edit", "200").Inc()
+	metrics.HttpRequestDuration.WithLabelValues("/stories/edit").Observe(time.Since(start).Seconds())
 	c.JSON(http.StatusOK, gin.H{"message": "Story updated"})
 }
 
-// EditContinuation allows the original submitter to edit if not accepted
+// EditContinuation
 func EditContinuation(c *gin.Context) {
+	start := time.Now()
 	var req struct {
 		Content string `json:"content" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
+		metrics.HttpRequests.WithLabelValues("/continuations/edit", "400").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -136,15 +161,19 @@ func EditContinuation(c *gin.Context) {
 
 	res := models.ContinuationCollection.FindOneAndUpdate(ctx, filter, update)
 	if res.Err() != nil {
+		metrics.HttpRequests.WithLabelValues("/continuations/edit", "403").Inc()
 		c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized or continuation locked"})
 		return
 	}
 
+	metrics.HttpRequests.WithLabelValues("/continuations/edit", "200").Inc()
+	metrics.HttpRequestDuration.WithLabelValues("/continuations/edit").Observe(time.Since(start).Seconds())
 	c.JSON(http.StatusOK, gin.H{"message": "Continuation updated"})
 }
 
-// DeleteStory deletes a story and all its continuations
+// DeleteStory
 func DeleteStory(c *gin.Context) {
+	start := time.Now()
 	id, _ := primitive.ObjectIDFromHex(c.Param("id"))
 	authorID := getUserEmail(c)
 
@@ -153,16 +182,21 @@ func DeleteStory(c *gin.Context) {
 
 	res, err := models.StoryCollection.DeleteOne(ctx, bson.M{"_id": id, "authorId": authorID})
 	if err != nil || res.DeletedCount == 0 {
+		metrics.HttpRequests.WithLabelValues("/stories/delete", "403").Inc()
 		c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized or story not found"})
 		return
 	}
 
 	_ = models.DeleteContinuationsByStoryID(ctx, id)
+
+	metrics.HttpRequests.WithLabelValues("/stories/delete", "200").Inc()
+	metrics.HttpRequestDuration.WithLabelValues("/stories/delete").Observe(time.Since(start).Seconds())
 	c.JSON(http.StatusOK, gin.H{"message": "Story and its continuations deleted"})
 }
 
-// DeleteContinuation deletes a continuation if not accepted
+// DeleteContinuation
 func DeleteContinuation(c *gin.Context) {
+	start := time.Now()
 	cid, _ := primitive.ObjectIDFromHex(c.Param("cid"))
 	authorID := getUserEmail(c)
 
@@ -172,15 +206,19 @@ func DeleteContinuation(c *gin.Context) {
 	filter := bson.M{"_id": cid, "authorId": authorID, "accepted": false}
 	res, err := models.ContinuationCollection.DeleteOne(ctx, filter)
 	if err != nil || res.DeletedCount == 0 {
+		metrics.HttpRequests.WithLabelValues("/continuations/delete", "403").Inc()
 		c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized or continuation locked"})
 		return
 	}
 
+	metrics.HttpRequests.WithLabelValues("/continuations/delete", "200").Inc()
+	metrics.HttpRequestDuration.WithLabelValues("/continuations/delete").Observe(time.Since(start).Seconds())
 	c.JSON(http.StatusOK, gin.H{"message": "Continuation deleted"})
 }
 
-// AcceptContinuation marks a continuation as accepted in a story
+// AcceptContinuation
 func AcceptContinuation(c *gin.Context) {
+	start := time.Now()
 	storyID, _ := primitive.ObjectIDFromHex(c.Param("id"))
 	cid, _ := primitive.ObjectIDFromHex(c.Param("cid"))
 	authorID := getUserEmail(c)
@@ -191,33 +229,42 @@ func AcceptContinuation(c *gin.Context) {
 	var story models.Story
 	err := models.StoryCollection.FindOne(ctx, bson.M{"_id": storyID, "authorId": authorID}).Decode(&story)
 	if err != nil {
+		metrics.HttpRequests.WithLabelValues("/continuations/accept", "403").Inc()
 		c.JSON(http.StatusForbidden, gin.H{"error": "You cannot accept for this story"})
 		return
 	}
 
 	_, err = models.StoryCollection.UpdateOne(ctx, bson.M{"_id": storyID}, bson.M{"$set": bson.M{"accepted": cid}})
 	if err != nil {
+		metrics.HttpRequests.WithLabelValues("/continuations/accept", "500").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to accept continuation"})
 		return
 	}
 
 	_, _ = models.ContinuationCollection.UpdateOne(ctx, bson.M{"_id": cid}, bson.M{"$set": bson.M{"accepted": true}})
+
+	metrics.HttpRequests.WithLabelValues("/continuations/accept", "200").Inc()
+	metrics.ContinuationsAccepted.Inc()
+	metrics.HttpRequestDuration.WithLabelValues("/continuations/accept").Observe(time.Since(start).Seconds())
 	c.JSON(http.StatusOK, gin.H{"message": "Continuation accepted"})
 }
 
-// GetAllStoriesWithContinuations returns all stories and their associated continuations
+// GetAllStoriesWithContinuations
 func GetAllStoriesWithContinuations(c *gin.Context) {
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	var stories []models.Story
 	storiesCollections, err := models.StoryCollection.Find(ctx, bson.M{})
 	if err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories/all", "500").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stories"})
 		return
 	}
 	defer storiesCollections.Close(ctx)
 	if err := storiesCollections.All(ctx, &stories); err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories/all", "500").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode stories"})
 		return
 	}
@@ -227,12 +274,14 @@ func GetAllStoriesWithContinuations(c *gin.Context) {
 		var continuations []models.Continuation
 		continuationsCollections, err := models.ContinuationCollection.Find(ctx, bson.M{"storyId": story.ID})
 		if err != nil {
+			metrics.HttpRequests.WithLabelValues("/stories/all", "500").Inc()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch continuations"})
 			return
 		}
 		if err := continuationsCollections.All(ctx, &continuations); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
+			metrics.HttpRequests.WithLabelValues("/stories/all", "500").Inc()
 			continuationsCollections.Close(ctx)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
 			return
 		}
 		continuationsCollections.Close(ctx)
@@ -241,23 +290,29 @@ func GetAllStoriesWithContinuations(c *gin.Context) {
 			"continuations": continuations,
 		})
 	}
+
+	metrics.HttpRequests.WithLabelValues("/stories/all", "200").Inc()
+	metrics.HttpRequestDuration.WithLabelValues("/stories/all").Observe(time.Since(start).Seconds())
 	c.JSON(http.StatusOK, storiesWithContinuations)
 }
 
-// GetStoryByID returns a story and its continuations by story ID
+// GetStoryByID
 func GetStoryByID(c *gin.Context) {
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	storyIDHex := c.Param("id")
 	storyID, err := primitive.ObjectIDFromHex(storyIDHex)
 	if err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories/id", "400").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid story ID"})
 		return
 	}
 
 	var story models.Story
 	if err := models.StoryCollection.FindOne(ctx, bson.M{"_id": storyID}).Decode(&story); err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories/id", "404").Inc()
 		c.JSON(http.StatusNotFound, gin.H{"error": "Story not found"})
 		return
 	}
@@ -265,26 +320,32 @@ func GetStoryByID(c *gin.Context) {
 	var continuations []models.Continuation
 	continuationsCollections, err := models.ContinuationCollection.Find(ctx, bson.M{"storyId": story.ID})
 	if err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories/id", "500").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch continuations"})
 		return
 	}
 	if err := continuationsCollections.All(ctx, &continuations); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
+		metrics.HttpRequests.WithLabelValues("/stories/id", "500").Inc()
 		continuationsCollections.Close(ctx)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
 		return
 	}
 	continuationsCollections.Close(ctx)
 
+	metrics.HttpRequests.WithLabelValues("/stories/id", "200").Inc()
+	metrics.HttpRequestDuration.WithLabelValues("/stories/id").Observe(time.Since(start).Seconds())
 	c.JSON(http.StatusOK, gin.H{
 		"story":         story,
 		"continuations": continuations,
 	})
 }
 
-// GetStoriesByTitle returns stories and their continuations by title
+// GetStoriesByTitle
 func GetStoriesByTitle(c *gin.Context) {
+	start := time.Now()
 	title := c.Query("title")
 	if title == "" {
+		metrics.HttpRequests.WithLabelValues("/stories/title", "400").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Title query parameter is required"})
 		return
 	}
@@ -294,11 +355,13 @@ func GetStoriesByTitle(c *gin.Context) {
 	var stories []models.Story
 	storiesCollections, err := models.StoryCollection.Find(ctx, bson.M{"title": title})
 	if err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories/title", "500").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stories"})
 		return
 	}
 	defer storiesCollections.Close(ctx)
 	if err := storiesCollections.All(ctx, &stories); err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories/title", "500").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode stories"})
 		return
 	}
@@ -308,12 +371,14 @@ func GetStoriesByTitle(c *gin.Context) {
 		var continuations []models.Continuation
 		continuationsCollections, err := models.ContinuationCollection.Find(ctx, bson.M{"storyId": story.ID})
 		if err != nil {
+			metrics.HttpRequests.WithLabelValues("/stories/title", "500").Inc()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch continuations"})
 			return
 		}
 		if err := continuationsCollections.All(ctx, &continuations); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
+			metrics.HttpRequests.WithLabelValues("/stories/title", "500").Inc()
 			continuationsCollections.Close(ctx)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
 			return
 		}
 		continuationsCollections.Close(ctx)
@@ -322,13 +387,18 @@ func GetStoriesByTitle(c *gin.Context) {
 			"continuations": continuations,
 		})
 	}
+
+	metrics.HttpRequests.WithLabelValues("/stories/title", "200").Inc()
+	metrics.HttpRequestDuration.WithLabelValues("/stories/title").Observe(time.Since(start).Seconds())
 	c.JSON(http.StatusOK, storiesWithContinuations)
 }
 
-// GetStoriesByAuthor returns stories and their continuations by authorId
+// GetStoriesByAuthor
 func GetStoriesByAuthor(c *gin.Context) {
+	start := time.Now()
 	authorID := c.Query("authorId")
 	if authorID == "" {
+		metrics.HttpRequests.WithLabelValues("/stories/author", "400").Inc()
 		c.JSON(http.StatusBadRequest, gin.H{"error": "authorId query parameter is required"})
 		return
 	}
@@ -338,11 +408,13 @@ func GetStoriesByAuthor(c *gin.Context) {
 	var stories []models.Story
 	storiesCollections, err := models.StoryCollection.Find(ctx, bson.M{"authorId": authorID})
 	if err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories/author", "500").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch stories"})
 		return
 	}
 	defer storiesCollections.Close(ctx)
 	if err := storiesCollections.All(ctx, &stories); err != nil {
+		metrics.HttpRequests.WithLabelValues("/stories/author", "500").Inc()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode stories"})
 		return
 	}
@@ -352,12 +424,14 @@ func GetStoriesByAuthor(c *gin.Context) {
 		var continuations []models.Continuation
 		continuationsCollections, err := models.ContinuationCollection.Find(ctx, bson.M{"storyId": story.ID})
 		if err != nil {
+			metrics.HttpRequests.WithLabelValues("/stories/author", "500").Inc()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch continuations"})
 			return
 		}
 		if err := continuationsCollections.All(ctx, &continuations); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
+			metrics.HttpRequests.WithLabelValues("/stories/author", "500").Inc()
 			continuationsCollections.Close(ctx)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to decode continuations"})
 			return
 		}
 		continuationsCollections.Close(ctx)
@@ -366,5 +440,8 @@ func GetStoriesByAuthor(c *gin.Context) {
 			"continuations": continuations,
 		})
 	}
+
+	metrics.HttpRequests.WithLabelValues("/stories/author", "200").Inc()
+	metrics.HttpRequestDuration.WithLabelValues("/stories/author").Observe(time.Since(start).Seconds())
 	c.JSON(http.StatusOK, storiesWithContinuations)
 }
