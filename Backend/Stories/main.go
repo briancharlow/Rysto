@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -16,6 +17,7 @@ import (
 	"storyService.com/story/models"
 	"storyService.com/story/redis"
 	"storyService.com/story/utils"
+	"storyService.com/story/metrics"
 )
 
 func main() {
@@ -44,7 +46,7 @@ func main() {
 	if redisAddr == "" {
 		log.Fatal("Error: REDIS_ADDR not set")
 	}
-	os.Setenv("REDIS_ADDR", redisAddr) // ensure redis sees it
+	os.Setenv("REDIS_ADDR", redisAddr)
 	log.Println("Connecting to Redis...")
 	redis.InitRedis()
 	log.Println("Redis connected successfully!")
@@ -86,6 +88,12 @@ func main() {
 
 	// --- Setup Gin routes ---
 	r := gin.Default()
+
+	// Add Prometheus middleware
+	r.Use(metrics.PrometheusMiddleware())
+
+	// Metrics endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	auth := r.Group("/api")
 	auth.Use(middleware.AuthMiddleware())

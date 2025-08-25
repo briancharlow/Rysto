@@ -99,7 +99,7 @@ func AddContinuation(c *gin.Context) {
 	cont.ID = res.InsertedID.(primitive.ObjectID)
 
 	metrics.HttpRequests.WithLabelValues("/continuations", "201").Inc()
-	metrics.ContinuationsAdded.Inc()
+	metrics.ContinuationsSubmitted.Inc()
 	metrics.HttpRequestDuration.WithLabelValues("/continuations").Observe(time.Since(start).Seconds())
 
 	c.JSON(http.StatusCreated, cont)

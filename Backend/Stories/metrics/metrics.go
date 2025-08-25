@@ -1,25 +1,28 @@
 package metrics
 
 import (
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	// HTTP requests counter
+	// HTTP metrics
 	HttpRequests = promauto.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "http_requests_total",
-			Help: "Total number of HTTP requests processed, labeled by endpoint and status",
+			Name: "story_http_requests_total",
+			Help: "Total number of HTTP requests processed by StoryService, labeled by endpoint and status",
 		},
 		[]string{"endpoint", "status"},
 	)
 
-	// Request latency
 	HttpRequestDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name:    "http_request_duration_seconds",
-			Help:    "Duration of HTTP requests in seconds",
+			Name:    "story_http_request_duration_seconds",
+			Help:    "Duration of HTTP requests in seconds for StoryService",
 			Buckets: prometheus.DefBuckets,
 		},
 		[]string{"endpoint"},
@@ -33,9 +36,9 @@ var (
 		},
 	)
 
-	ContinuationsAdded = promauto.NewCounter(
+	ContinuationsSubmitted = promauto.NewCounter(
 		prometheus.CounterOpts{
-			Name: "continuations_added_total",
+			Name: "continuations_submitted_total",
 			Help: "Total number of continuations submitted",
 		},
 	)
@@ -46,4 +49,37 @@ var (
 			Help: "Total number of continuations accepted",
 		},
 	)
+
+	StoriesDeleted = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "stories_deleted_total",
+			Help: "Total number of stories deleted",
+		},
+	)
+
+	ContinuationsDeleted = promauto.NewCounter(
+		prometheus.CounterOpts{
+			Name: "continuations_deleted_total",
+			Help: "Total number of continuations deleted",
+		},
+	)
 )
+
+// 🔹 Middleware for Prometheus
+func PrometheusMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+
+		endpoint := c.FullPath()
+		if endpoint == "" {
+			endpoint = "unknown"
+		}
+
+		status := strconv.Itoa(c.Writer.Status())
+		HttpRequests.WithLabelValues(endpoint, status).Inc()
+
+		duration := time.Since(start).Seconds()
+		HttpRequestDuration.WithLabelValues(endpoint).Observe(duration)
+	}
+}
